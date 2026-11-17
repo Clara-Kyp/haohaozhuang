@@ -20,6 +20,104 @@ export function validRooms(input) {
     r.x >= 0 && r.y >= 0 && r.w > .025 && r.h > .025 && r.x + r.w <= 1.0001 && r.y + r.h <= 1.0001);
 }
 
+export const MAX_PLAN_ROOMS = 24;
+export const MIN_ROOM_SPAN = .026;
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const validDimension = value => Number.isFinite(value) && value >= 1 && value <= 60;
+const roomNameKey = name => name.trim().replace(/\s+/g, '').toLowerCase();
+
+export function recognitionRoomSizes(rows) {
+  const sizes = [];
+  const names = new Set();
+  for (const row of rows) {
+    const name = row.name.trim();
+    if (!name && row.width === '' && row.depth === '') continue;
+    const width_m = Number(row.width);
+    const depth_m = Number(row.depth);
+    if (!name || !validDimension(width_m) || !validDimension(depth_m)) {
+      throw new Error('请填写房间名称，以及 1–60 米的宽度和进深。');
+    }
+    const key = roomNameKey(name);
+    if (names.has(key)) throw new Error('请用不同的房间名称，例如「主卧」和「次卧」。');
+    names.add(key);
+    sizes.push({ name, width_m, depth_m });
+  }
+  return sizes;
+}
+
+export function applyRecognitionSizes(rooms, sizes) {
+  const counts = new Map();
+  for (const room of rooms) {
+    const key = roomNameKey(room.name);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return rooms.map(room => {
+    const key = roomNameKey(room.name);
+    const size = sizes.find(entry => roomNameKey(entry.name) === key);
+    return size && counts.get(key) === 1 ? { ...room, size: [size.width_m, size.depth_m] } : room;
+  });
+}
+
+export function planRoomDimensions(room, [width, depth]) {
+  return room?.size || [Math.max(1.5, width * (room?.w || .5)), Math.max(1.5, depth * (room?.h || .5))];
+}
+
+export function resizeRoomToDimensions(room, size, planSize) {
+  if (!size.every(validDimension)) throw new Error('房间宽度和进深须在 1–60 米之间。');
+  const [width, depth] = planRoomDimensions(room, planSize);
+  const w = room.w * size[0] / width;
+  const h = room.h * size[1] / depth;
+  if (w < MIN_ROOM_SPAN || h < MIN_ROOM_SPAN || room.x + w > 1 + 1e-8 || room.y + h > 1 + 1e-8) {
+    throw new Error('该尺寸在当前比例下会超出底图或难以绘制。请先移动房间或核对图纸比例。');
+  }
+  return { ...room, w: Math.min(w, 1 - room.x), h: Math.min(h, 1 - room.y), size };
+}
+
+function snapDelta(edges, targets, tolerance) {
+  let delta = 0;
+  let distance = tolerance;
+  for (const edge of edges) {
+    for (const target of targets) {
+      if (Math.abs(target - edge) >= distance) continue;
+      delta = target - edge;
+      distance = Math.abs(delta);
+    }
+  }
+  return delta;
+}
+
+function editRoomAxis(start, span, delta, moveStart, moveEnd, size, targets, tolerance) {
+  const end = start + span;
+  if (moveStart && moveEnd) {
+    const position = start + delta;
+    return [clamp(position + snapDelta([position, position + span], targets, tolerance), 0, 1 - span), span];
+  }
+  const min = Math.min(span, Math.max(MIN_ROOM_SPAN, span / size));
+  const max = Math.max(span, span * 60 / size);
+  if (moveStart) {
+    const position = start + delta;
+    const next = clamp(position + snapDelta([position], targets, tolerance), Math.max(0, end - max), end - min);
+    return [next, end - next];
+  }
+  if (moveEnd) {
+    const position = end + delta;
+    return [start, clamp(position + snapDelta([position], targets, tolerance) - start, min, Math.min(max, 1 - start))];
+  }
+  return [start, span];
+}
+
+export function dragPlanRoom(room, handle, delta, planSize, neighbors = [], tolerance = [0, 0]) {
+  const [width, depth] = planRoomDimensions(room, planSize);
+  const moving = handle === 'move';
+  const [x, w] = editRoomAxis(room.x, room.w, delta.x, moving || handle.includes('w'), moving || handle.includes('e'),
+    width, [0, 1, ...neighbors.flatMap(other => [other.x, other.x + other.w])], tolerance[0]);
+  const [y, h] = editRoomAxis(room.y, room.h, delta.y, moving || handle.includes('n'), moving || handle.includes('s'),
+    depth, [0, 1, ...neighbors.flatMap(other => [other.y, other.y + other.h])], tolerance[1]);
+  const next = { ...room, x, y, w, h };
+  if (!moving && room.size) next.size = [width * w / room.w, depth * h / room.h];
+  return next;
+}
+
 export function requireLayouts(value, goals) {
   const layouts = value?.layouts;
   if (value?.source !== 'model' || !Array.isArray(layouts) || layouts.length !== goals.length ||

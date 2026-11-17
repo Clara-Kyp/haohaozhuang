@@ -30,8 +30,11 @@ import {FurnitureLoading} from './FurnitureScene';
 import {assets,freshFurnishing,requireFurnishing,furnishingWarning} from './furnishing';
 import { readProject, writeProject } from './persistence';
 import PlanAssistant from './PlanAssistant';
+import PlanCanvas from './PlanCanvas';
+import { RecognitionDimensions, RoomDimensionsForm } from './PlanMeasurements';
 import { canonicalStyle, getStyleProfile, styleNames } from './styleProfiles';
-import { newPlanning, restorePlanning, layoutGoals, validRooms, requireLayouts, readImage, rasterizePlan } from './planTools';
+import { newPlanning, restorePlanning, layoutGoals, validRooms, requireLayouts, readImage, rasterizePlan,
+  recognitionRoomSizes, applyRecognitionSizes, planRoomDimensions, resizeRoomToDimensions } from './planTools';
 import {
   useStudio, materials, preset, initialScene, initialRoom, faceNames,
   ceilingTypes, rugPositions, proposalPatch, placement, serializeProject, withoutRoom,
@@ -220,16 +223,17 @@ function App() {
   const [grid, setGrid] = useState(true);
   const [picked, setPicked] = useState({});
   const [dragOver, setDragOver] = useState(false);
-  const [preview, setPreview] = useState(null);
   const [planning, setPlanning] = useState(newPlanning);
   const [furnishingDrafts,setFurnishingDrafts] = useState({});
   const [recognition, setRecognition] = useState({ state: 'idle', detail: '' });
+  const [sizeConditions, setSizeConditions] = useState([]);
+  const [snapRooms, setSnapRooms] = useState(true);
+  const [roomEditUndo, setRoomEditUndo] = useState(null);
   const [buildTool,setBuildTool]=useState('drag'),[snap,setSnap]=useState(0),[walk,setWalk]=useState(false),[exporting,setExporting]=useState(false),[productBake,setProductBake]=useState(null);
   const roomBridge=useRef(null),inventoryDrop=useRef(null);
   const {frameRef,fullscreen,toggle:toggleFullscreen}=useSceneFullscreen();
 
   const headerUploadRef=useRef(null);
-  const planRef = useRef(null);
   const inspectorRef = useRef(null);
   const planWidthRef = useRef(null);
   const shelfToggleRef = useRef(null);
@@ -237,11 +241,12 @@ function App() {
   const request = useRef(0);
   const currentRooms = useRef({});
   const cameraPoses = useRef({});
-  const gesture = useRef(null);
 
   const selectedRoom = rooms[active] || rooms[0];
   const layoutPreview = planning.layouts.find(p => p.id === planning.previewId);
   const visibleRooms = layoutPreview?.rooms || rooms;
+  const planSize = [planW, planH];
+  const canEditPlan = stage === 'plan' && !busy && !layoutPreview;
   const warning = placement(scene);
   const visibleWarning = !busy && stage === 'studio' && warning;
   const statusText = busy || visibleWarning || message;
@@ -264,6 +269,7 @@ function App() {
 
   function resetDraft() {
     resetProject();setFurnishingDrafts({});
+    setRoomEditUndo(null);
     currentRooms.current = {}; cameraPoses.current = {};
     setProposal(null); setTarget(null); setPicked({}); setLink('');
   }
@@ -276,9 +282,7 @@ function App() {
   }, [message]);
 
   /** 房间的 3D 尺寸：内置户型用示意尺寸，上传户型按校准后的图宽高换算 */
-  const roomSize = (room) => room?.size
-    ? room.size
-    : [Math.max(1.5, planW * (room?.w || .5)), Math.max(1.5, planH * (room?.h || .5))];
+  const roomSize = room => planRoomDimensions(room, planSize);
 
   function showHome() {
     setStage('welcome');
@@ -289,6 +293,7 @@ function App() {
   function loadPlan(plan) {
     if (busy) { setMessage('请等待当前任务完成后切换项目。'); return; }
     resetDraft(); setPlanning(newPlanning());
+    setSizeConditions([]);
     setRecognition({ state: 'sample', detail: '当前为内置示例，可直接核对，也可输入要求让模型重新规划。' });
     const list = plan.rooms.map(r => ({ ...r }));
     const living = list.findIndex(r => r.kind === 'living');
@@ -303,15 +308,17 @@ function App() {
   }
 
   /** 上传后直接调用视觉大模型；不再把前端墙线猜测写成识别结果。 */
-  async function upload(file) {
+  async function upload(file, conditions = []) {
     if (!file) return;
     if (busy) { setMessage('请等待当前任务完成后上传新户型。'); return; }
     const seq = ++request.current;
     setBusy('读取户型图…');
     try {
+      const sizes = recognitionRoomSizes(conditions);
       const value = await readImage(file);
       if (seq !== request.current) return;
       resetDraft(); setPlanning(newPlanning());
+      setSizeConditions(conditions);
       setPhoto(value.image); setBackdrop(''); setPlanImg([value.width, value.height]);
       setRatio(value.width / value.height);
       const estimatedWidth = 6.32;
@@ -320,17 +327,20 @@ function App() {
       setPlanH(Math.min(60, Math.max(1, estimatedHeight)));
       setRooms([]); setSource([]); setActive(0); setMode('keep'); setZone(null); setVerified(false);
       setStage('plan'); setView('plan');
-      await recognize(value, seq);
+      await recognize(value, seq, sizes);
     } catch (error) {
       if (seq === request.current) setMessage(error.message || '图片无法读取，请换一张试试。');
     } finally { if (seq === request.current) setBusy(''); }
   }
 
-  async function recognize(image, seq) {
+  async function recognize(image, seq, sizes, calibratedSize) {
     setBusy('大模型识别原始户型…');
     setRecognition({ state: 'recognizing', detail: '正在将原图交给视觉模型识别，请稍候。' });
     try {
-      const value = await api('plan', image);
+      const value = await api('plan', {
+        ...image, room_sizes: sizes,
+        ...(calibratedSize && { plan_width_m: calibratedSize[0], plan_height_m: calibratedSize[1] }),
+      });
       if (seq !== request.current) return;
       if (!validRooms(value.rooms)) {
         setRecognition({ state: 'empty', detail: '模型未识别出可靠房间。原图与现有划分已保留；可重试识别，或在下方输入要求重新规划。' });
@@ -338,11 +348,13 @@ function App() {
         return;
       }
       resetDraft();
-      const recognized = value.rooms.map(r => ({ ...r, name: String(r.name).slice(0,24) }));
+      const recognized = applyRecognitionSizes(value.rooms.map(r => ({ ...r, name: String(r.name).slice(0,24) })), sizes);
       setRooms(recognized); setSource(recognized); setMode('keep'); setZone(null); setActive(0);
       setPlanning(old => ({ ...old, layouts: [], previewId: null, appliedId: null, error: '' }));
       const alignment = value.aligned_rooms > 0 ? `已按黑墙线对齐 ${value.aligned_rooms} 个空间的部分边界。` : '';
-      setRecognition({ state: 'recognized', detail: `${value.model || '视觉模型'}识别出 ${recognized.length} 个候选空间。${alignment}请核对房名、边界与实测尺寸。` });
+      const matched = recognized.filter(room => room.size).length;
+      const measurements = matched > 0 ? `已匹配 ${matched} 间房的实测尺寸。` : '';
+      setRecognition({ state: 'recognized', detail: `${value.model || '视觉模型'}识别出 ${recognized.length} 个候选空间。${alignment}${measurements}请核对房名、边界与实测尺寸。` });
       setMessage('模型识别完成，核对原布局或输入要求重新规划。');
     } catch (error) {
       if (seq === request.current) {
@@ -358,8 +370,13 @@ function App() {
     setBusy('准备原始户型图…');
     try {
       const image = photo ? { image: photo, width: planImg[0], height: planImg[1] } : await rasterizePlan(backdrop);
-      await recognize(image, seq);
-    } catch (error) { setMessage(error.message); }
+      await recognize(image, seq, recognitionRoomSizes(sizeConditions), verified ? planSize : null);
+    } catch (error) {
+      if (seq === request.current) {
+        setRecognition({ state: 'failed', detail: error.message });
+        setMessage(error.message);
+      }
+    }
     finally { if (seq === request.current) setBusy(''); }
   }
 
@@ -429,17 +446,33 @@ function App() {
 
   /* --------------------------- 平面图交互 --------------------------- */
 
-  function point(event) {
-    const svg = planRef.current;
-    if (!svg) return { x: 0, y: 0 };
-    const p = new DOMPoint(event.clientX, event.clientY).matrixTransform(svg.getScreenCTM().inverse());
-    const clamp = n => Math.max(0, Math.min(1, n));
-    return { x: clamp(p.x / 1000), y: clamp(p.y / (1000 / ratio)) };
+  function editRoomGeometry(index, room) {
+    if (!canEditPlan) return;
+    const before = rooms[index];
+    if (!before) return;
+    const sameBounds = ['x', 'y', 'w', 'h'].every(key => Math.abs(room[key] - before[key]) < 1e-8);
+    const sameSize = room.size === before.size || (room.size && before.size && room.size.every((value, i) =>
+      Math.abs(value - before.size[i]) < 1e-8));
+    if (sameBounds && sameSize) return;
+    const next = rooms.map((old, i) => i === index ? room : old);
+    setRoomEditUndo({ before: rooms, after: next, active });
+    setRooms(next);
+    setActive(index);
   }
-  const box = (a, b) => ({
-    x: Math.min(a.x, b.x), y: Math.min(a.y, b.y),
-    w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y),
-  });
+
+  function addRoomGeometry(box) {
+    if (!canEditPlan) return;
+    const next = [...rooms, { ...box, name: '房间 ' + (rooms.length + 1) }];
+    setRoomEditUndo({ before: rooms, after: next, active });
+    setRooms(next); setActive(rooms.length);
+    setMessage('已添加新空间，可修改房间名称与尺寸。');
+  }
+
+  function undoRoomGeometry() {
+    if (!canEditPlan || roomEditUndo?.after !== rooms) return;
+    setRooms(roomEditUndo.before); setActive(roomEditUndo.active); setRoomEditUndo(null);
+    setMessage('已撤销上一次房间调整。');
+  }
 
   function selectRoom(index) {
     if (index === active) return;
@@ -688,7 +721,7 @@ function App() {
       const data = serializeProject({
         rooms, source, active, scene, roomScenes, cameraPoses: cameraPoses.current,
         verified, zone, mode, planW, planH, ratio, photo, planImg, backdrop,
-        picked, planning, recognition, stage, furnishingDrafts,
+        picked, planning, recognition, sizeConditions, stage, furnishingDrafts,
       });
       await writeProject(data);
       setSaved(data);
@@ -701,6 +734,8 @@ function App() {
   function restore() {
     if (!saved || busy || saving) return;
     resetProject();
+    setRoomEditUndo(null);
+    setSizeConditions(saved.sizeConditions || []);
     setRooms(saved.rooms || []); setSource(saved.source || []); setActive(saved.active || 0);
     setVerified(!!saved.verified); setZone(saved.zone?.axis ? saved.zone : null);
     setMode(saved.mode || 'keep'); setPlanW(saved.planW || 6.32); setPlanH(saved.planH || 6.32);
@@ -711,7 +746,7 @@ function App() {
     cameraPoses.current = saved.cameraPoses || {};
     const restoredRoom = (saved.rooms || [])[saved.active || 0] || initialRoom;
     const restoredScene = currentRooms.current[saved.active || 0] || saved.scene;
-    const dimensions = restoredRoom.size || [Math.max(1.5, (saved.planW || 6.32) * restoredRoom.w), Math.max(1.5, (saved.planH || 6.32) * restoredRoom.h)];
+    const dimensions = planRoomDimensions(restoredRoom, [saved.planW || 6.32, saved.planH || 6.32]);
     load(createRoomScene(restoredRoom, dimensions, restoredScene), saved.active || 0);
     setLink(saved.scene?.link || ''); setPicked(saved.picked || {}); setProposal(null);
 
@@ -756,6 +791,7 @@ function App() {
           onStartBlank={() => {
             if (busy) { setMessage('请等待当前任务完成。'); return; }
             resetDraft(); setPlanning(newPlanning()); setRecognition({ state: 'idle', detail: '' });
+            setSizeConditions([]);
             setRooms([{ ...initialRoom }]); setSource([{ ...initialRoom }]);
             setPhoto(''); setBackdrop(planBackdrop); setRatio(1);
             setStage('plan'); setView('plan');
@@ -815,65 +851,11 @@ function App() {
                   const swatch = paintSwatches.find(s => s.name === name);
                   if (swatch) applyPaint(swatch);
                 }}>
-                <svg className="plan" ref={planRef} viewBox={`0 0 1000 ${1000 / ratio}`} aria-label="户型平面"
-                  onPointerDown={e => {
-                    if (stage !== 'plan' || busy || layoutPreview || e.target.dataset.room !== undefined) return;
-                    gesture.current = point(e);
-                    e.currentTarget.setPointerCapture(e.pointerId);
-                  }}
-                  onPointerMove={e => { if (gesture.current) setPreview(box(gesture.current, point(e))); }}
-                  onPointerCancel={() => { gesture.current = null; setPreview(null); }}
-                  onPointerUp={e => {
-                    if (!gesture.current) return;
-                    const r = box(gesture.current, point(e));
-                    gesture.current = null; setPreview(null);
-                    if (r.w > .025 && r.h > .025 && stage === 'plan') {
-                      setRooms([...rooms, { ...r, name: '房间 ' + (rooms.length + 1) }]);
-                      setActive(rooms.length);
-                      setMessage('已添加新空间，可在右侧修改名称。');
-                    }
-                  }}>
-                  {backdropUrl && <image href={backdropUrl} width="1000" height={1000 / ratio} />}
-                  {[...visibleRooms, ...(preview ? [preview] : [])].map((r, i) => (
-                    <g key={i}>
-                      <rect data-room={i} x={r.x * 1000} y={r.y * 1000 / ratio}
-                        width={r.w * 1000} height={r.h * 1000 / ratio} rx="8"
-                        fill={i === active ? '#7fc9a0' : '#bfe0c8'}
-                        fillOpacity={i === active ? .48 : .28} stroke={i === active ? '#439a70' : '#8dbfa2'}
-                        strokeWidth={i === active ? 4 : 2} strokeDasharray={i === visibleRooms.length ? '10 8' : undefined}
-                        onClick={() => stage === 'plan' && !busy && !layoutPreview && selectRoom(i)} />
-                      {zone && i === active ? (
-                        <>
-                          <line
-                            x1={(r.x + (zone.axis === 'x' ? r.w * zone.split : 0)) * 1000}
-                            x2={(r.x + (zone.axis === 'x' ? r.w * zone.split : r.w)) * 1000}
-                            y1={(r.y + (zone.axis === 'y' ? r.h * zone.split : 0)) * 1000 / ratio}
-                            y2={(r.y + (zone.axis === 'y' ? r.h * zone.split : r.h)) * 1000 / ratio}
-                            stroke="#439a70" strokeWidth="3" strokeDasharray="10 8" pointerEvents="none" />
-                          {zone.labels.map((label, j) => (
-                            <text key={j} className="room-area"
-                              x={(r.x + r.w * (zone.axis === 'x' ? (j + zone.split) / 2 : .5)) * 1000}
-                              y={(r.y + r.h * (zone.axis === 'y' ? (j + zone.split) / 2 : .5)) * 1000 / ratio}
-                              textAnchor="middle" pointerEvents="none">{label}</text>
-                          ))}
-                        </>
-                      ) : (
-                        <>
-                          <text x={(r.x + r.w / 2) * 1000} y={(r.y + r.h / 2) * 1000 / ratio}
-                            textAnchor="middle" pointerEvents="none">{r.name}</text>
-                          {r.area && <text className="room-area"
-                            x={(r.x + r.w / 2) * 1000} y={(r.y + r.h / 2) * 1000 / ratio + 26}
-                            textAnchor="middle" pointerEvents="none">{r.area} ㎡</text>}
-                        </>
-                      )}
-                    </g>
-                  ))}
-                  {layoutPreview?.circulation?.path?.length > 1 && <polyline
-                    points={layoutPreview.circulation.path.map(p => `${p.x * 1000},${p.y * 1000 / ratio}`).join(' ')}
-                    fill="none" stroke="#b96b39" strokeWidth="5" strokeDasharray="12 7" pointerEvents="none" />}
-                </svg>
+                <PlanCanvas rooms={visibleRooms} active={active} ratio={ratio} backdropUrl={backdropUrl}
+                  zone={layoutPreview ? null : zone} circulation={layoutPreview?.circulation?.path}
+                  editable={canEditPlan} planSize={planSize} snap={snapRooms}
+                  onSelect={selectRoom} onEdit={editRoomGeometry} onAdd={addRoomGeometry} />
                 {layoutPreview && <div className="preview-layout-banner">正在预览「{layoutPreview.style} · {layoutPreview.title}」，尚未应用。橙色虚线为示意动线，净宽与结构待核实。</div>}
-                <div className="plan-hint">点选房间切换 · 空白处拖拽可框选新空间</div>
               </div>
             ) : (
               <div ref={frameRef} className={'canvas-wrap ' + (fullscreen?'scene-fullscreen ':'') + (dragOver ? 'drop-active' : '')}
@@ -917,6 +899,23 @@ function App() {
             )}
 
             {stage==='studio'&&scene.furnishingApplied&&<div className="build-toolbar" aria-label="建造工具"><div className="row">{[['drag','自由拖动'],['translate','XYZ移动'],['rotate','旋转']].map(([key,label])=><button key={key} aria-pressed={!walk&&buildTool===key} onClick={()=>{setWalk(false);setBuildTool(key);edit({buildMode:'build'});}}>{label}</button>)}<label>吸附<select aria-label="网格吸附" value={snap} onChange={e=>setSnap(Number(e.target.value))}><option value="0">关闭</option><option value="0.05">5cm</option><option value="0.1">10cm</option></select></label><button aria-pressed={walk} onClick={()=>{setView('inside');setWalk(!walk);}}>{walk?'退出漫游':'进入室内漫游'}</button></div><div className="row"><button onClick={resetShowroom}>一键还原样板间</button><button onClick={()=>{edit({showroom:showroomSnapshot(scene),buildMode:'showroom'});setMessage('已将当前物件与饰面保存为此房间的样板间基准。');}}>设为样板间</button></div></div>}
+            {stage === 'plan' && !layoutPreview && <div className="plan-edit-controls">
+              <p className="card-sub">拖房间框可移动，拖边或角可改大小。空白处拖动可新增房间，方向键可微移。</p>
+              {!!rooms.length && <fieldset disabled={!canEditPlan}>
+                <label>当前房间<select value={active} onChange={event => selectRoom(Number(event.target.value))}>
+                  {rooms.map((room, index) => <option key={index} value={index}>{room.name}</option>)}
+                </select></label>
+                <RoomDimensionsForm key={active} size={roomSize(selectedRoom)}
+                  onApply={size => editRoomGeometry(active, resizeRoomToDimensions(selectedRoom, size, planSize))} />
+                <div className="plan-edit-actions">
+                  <label className="check"><input type="checkbox" checked={snapRooms}
+                    onChange={event => setSnapRooms(event.target.checked)} />吸附房间边界</label>
+                  <button className="pill" type="button" disabled={roomEditUndo?.after !== rooms}
+                    onClick={undoRoomGeometry}>撤销房间调整</button>
+                </div>
+              </fieldset>}
+            </div>}
+
             {/* 底部工具栏两阶段共用：户型阶段把主按钮放在始终可见的位置 */}
             <div className="bar canvas-footer">
               {stage === 'plan' ? (
@@ -962,9 +961,10 @@ function App() {
                   <div className="stack">
                     {!hasAI ? <><p>这里使用内置户型。开启在线 AI 后可上传自己的户型图。</p>
                       <button className="pill" onClick={showHome}>换示例户型</button></> : <>
+                    <RecognitionDimensions rows={sizeConditions} onChange={setSizeConditions} />
                     <label>上传户型图
                       <input type="file" accept="image/png,image/jpeg,image/webp"
-                        onChange={e => upload(e.target.files[0])} />
+                        onChange={e => { upload(e.target.files[0], sizeConditions); e.target.value = ''; }} />
                     </label>
                     <div className="row">
                       <button className="pill" onClick={showHome}>换示例户型</button>
@@ -1018,8 +1018,8 @@ function App() {
                           setMessage('房间用途已更新，进入 3D 后会使用对应基础陈设。');
                         }} />
                       <p className="card-sub">
-                        示意尺寸 {roomSize(selectedRoom).map(n => (n * 100).toFixed(0)).join(' × ')} cm
-                        {selectedRoom.area ? ` · 标注面积 ${selectedRoom.area} ㎡` : ''}
+                        {selectedRoom.size || verified ? '当前尺寸' : '示意尺寸'} {roomSize(selectedRoom).map(n => (n * 100).toFixed(0)).join(' × ')} cm
+                        {selectedRoom.area ? ` · 原图标注面积 ${selectedRoom.area} ㎡` : ''}
                       </p>
                       <button className="pill" onClick={() => {
                         setRooms(rooms.filter((_, i) => i !== active));

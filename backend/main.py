@@ -117,10 +117,19 @@ async def complete(system, content, model=None, provider=None, role="text", max_
     raise InvalidModelJSON(502, f"{name} 未返回可解析的 JSON")
 
 
+class PlanRoomSize(BaseModel):
+    name: str = Field(min_length=1, max_length=24)
+    width_m: float = Field(ge=1, le=60, allow_inf_nan=False)
+    depth_m: float = Field(ge=1, le=60, allow_inf_nan=False)
+
+
 class PlanInput(BaseModel):
     image: str = Field(max_length=16_100_000)
     width: int = Field(default=2048, gt=0, le=20000)
     height: int = Field(default=1536, gt=0, le=20000)
+    room_sizes: list[PlanRoomSize] = Field(default_factory=list, max_length=24)
+    plan_width_m: float | None = Field(default=None, gt=0, le=60, allow_inf_nan=False)
+    plan_height_m: float | None = Field(default=None, gt=0, le=60, allow_inf_nan=False)
 
 
 class DesignInput(BaseModel):
@@ -239,10 +248,23 @@ study、circulation、court、other。'''
 @app.post("/api/plan")
 async def plan(payload: PlanInput):
     image_data = decode_image(payload.image)
+    content = [
+        {"type": "image_url", "image_url": {"url": payload.image}},
+        {"type": "text", "text": f"原图宽{payload.width}像素、高{payload.height}像素。根据墙体内缘先定位四条边，再输出 rooms JSON。"},
+    ]
+    if payload.room_sizes or (payload.plan_width_m and payload.plan_height_m):
+        measurements = {"room_sizes": [size.model_dump() for size in payload.room_sizes]}
+        if payload.plan_width_m and payload.plan_height_m:
+            measurements["verified_plan_metres"] = [payload.plan_width_m, payload.plan_height_m]
+        content.append({"type": "text", "text": (
+            "以下 JSON 是用户提供的实测条件。宽度对应原图水平方向，进深对应竖直方向。"
+            "用房间名和尺寸核对识别候选，能明确匹配时沿用用户提供的房间名。"
+            "优先沿原图墙内缘，尺寸与图像不一致时不要挪墙或补造房间。房间名仅作标签。\n"
+            + json.dumps(measurements, ensure_ascii=False)
+        )})
     result = await complete(
         PLAN_RECOGNITION_SYSTEM,
-        [{"type": "image_url", "image_url": {"url": payload.image}},
-         {"type": "text", "text": f"原图宽{payload.width}像素、高{payload.height}像素。根据墙体内缘先定位四条边，再输出 rooms JSON。"}],
+        content,
         role="vision")
     normalized = normalize_rooms(result, payload.width, payload.height)
     aligned = align_room_edges(image_data, normalized["rooms"])

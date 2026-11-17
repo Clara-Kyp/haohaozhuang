@@ -484,6 +484,43 @@ h2 { font-size: 16px; line-height: 1.35; }
 .plan-calibration .check { min-height: 44px; }
 .calibration-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .calibration-fields input { min-inline-size: 0; }
+.plan rect.editable-room { cursor: move; }
+.plan rect.editable-room:focus-visible { outline: none; stroke: var(--action); stroke-width: 3px; }
+.plan-room-handle { fill: var(--paper); stroke: #257048; stroke-width: 2px; pointer-events: none; }
+.plan-room-handle-hit { fill: transparent; stroke: transparent; stroke-width: 20px; pointer-events: all; }
+.plan-room-handle-hit:is([data-handle="n"], [data-handle="s"]) { cursor: ns-resize; }
+.plan-room-handle-hit:is([data-handle="e"], [data-handle="w"]) { cursor: ew-resize; }
+.plan-room-handle-hit:is([data-handle="nw"], [data-handle="se"]) { cursor: nwse-resize; }
+.plan-room-handle-hit:is([data-handle="ne"], [data-handle="sw"]) { cursor: nesw-resize; }
+
+.plan-edit-controls { padding: 12px 18px; border-block-end: 1px solid var(--line); }
+.plan-edit-controls > .card-sub { margin: 0; }
+.plan-edit-controls fieldset {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(0, 2.5fr);
+  align-items: end;
+  gap: 8px 14px;
+  min-inline-size: 0;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+}
+.room-dimensions-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; align-items: end; gap: 8px; }
+.room-dimensions-form input { min-inline-size: 0; }
+.room-dimensions-form .plan-error, .plan-edit-actions { grid-column: 1 / -1; }
+.plan-edit-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.plan-edit-controls button, .plan-edit-actions .check, .recognition-dimensions button { min-height: 44px; }
+.recognition-dimensions summary { min-height: 44px; padding: 10px 0; cursor: pointer; }
+.recognition-room { display: grid; gap: 8px; padding: 10px 0; border-block-end: 1px solid var(--line); }
+.recognition-room button { justify-self: start; }
+.recognition-dimensions > button { margin-top: 8px; }
+
+@media (max-width: 600px) {
+  .plan-edit-controls fieldset { grid-template-columns: minmax(0, 1fr); }
+  .room-dimensions-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .room-dimensions-form button { grid-column: 1 / -1; justify-self: start; }
+  .room-dimensions-form input, .recognition-room input { font-size: 16px; }
+}
 .studio-shortcuts { justify-content: flex-start; }
 .studio-shortcuts button { min-height: 44px; max-inline-size: 100%; white-space: normal; }
 .studio-extras { grid-column: 1; min-inline-size: 0; }
