@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from backend.main import app
+from backend.main import app, InvalidModelJSON
 from backend.style_profiles import style_profile
 from backend.planning import LayoutInput, validate_layouts, partition_rooms, bounds_from_rooms, required_functions_from_rooms
 
@@ -82,6 +82,18 @@ class PlanningTests(unittest.TestCase):
         correction = mock.call_args_list[1].args[1][-1]['text']
         self.assertIn('validation_errors', correction)
         self.assertIn('previous_output', correction)
+
+    def test_unparseable_output_gets_one_retry_without_fabricating_a_plan(self):
+        for retry, expected_status in [(candidates(), 200), (InvalidModelJSON(502, '无效 JSON'), 502)]:
+            with self.subTest(expected_status=expected_status):
+                mock = AsyncMock(side_effect=[InvalidModelJSON(502, '无效 JSON'), retry])
+                with TestClient(app) as client, patch('backend.main.complete', mock):
+                    response = client.post('/api/layouts', json={'image': IMAGE, 'width': 100, 'height': 100,
+                        'instruction': '动线优先', 'styles': STYLES})
+                self.assertEqual(response.status_code, expected_status)
+                self.assertEqual(mock.await_count, 2)
+                self.assertIn('合法的 layouts JSON', mock.call_args.args[1][-1]['text'])
+                self.assertEqual('layouts' in response.json(), expected_status == 200)
 
     def test_same_geometry_with_different_styles_is_rejected(self):
         data = candidates()

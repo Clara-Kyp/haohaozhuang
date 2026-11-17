@@ -26,6 +26,10 @@ PALETTE = (
 )
 
 
+class InvalidModelJSON(HTTPException):
+    """模型请求成功，但输出无法解析为 JSON。"""
+
+
 def decode_image(value, max_size=12_000_000):
     if not re.fullmatch(r"data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+", value):
         raise HTTPException(422, "图片须为 PNG、JPG 或 WebP")
@@ -110,7 +114,7 @@ async def complete(system, content, model=None, provider=None, role="text", max_
                 return json.loads(raw[start:end + 1])
             except ValueError:
                 pass
-    raise HTTPException(502, f"{name} 未返回可解析的 JSON")
+    raise InvalidModelJSON(502, f"{name} 未返回可解析的 JSON")
 
 
 class PlanInput(BaseModel):
@@ -283,15 +287,19 @@ async def generate_layouts(payload: LayoutInput):
         "各规则仅用于标题所对应的方案。此阶段只输出动线和功能分区，沿用用户给出的风格名称。"
         "用可调整的功能分配、面积与连接关系体现风格，家具和饰面只作为后续设计参考。",
     )
-    result = await complete(system, content, role="vision", max_output_tokens=16384)
+    result = None
     try:
+        result = await complete(system, content, role="vision", max_output_tokens=16384)
         layouts = validate_layouts(result, choices, fixed_bounds, required_functions, by_goal=by_goal)
-    except (ValueError, ValidationError) as error:
-        # 只进行一次定向修正；仍不合格就报错，不能补出假方案。
-        correction = {"previous_output": result, "validation_errors": layout_error_message(error),
-                      **criteria,
-                      "fix_request": ("请修正这些具体错误，按布局目标重新给出完整 layouts JSON。不要为区分目标而改动固定墙体。"
-                                      if by_goal else "请修正这些具体错误，重新给出完整 layouts JSON。保持原始户型，不要只换配色，各方案应有不同的分隔边界。")}
+    except (InvalidModelJSON, ValueError, ValidationError) as error:
+        # 格式错误与校验失败共用一次修正机会。
+        correction = dict(criteria)
+        if isinstance(error, InvalidModelJSON):
+            correction["fix_request"] = "上一次的回复无法解析。请仅返回完整、合法的 layouts JSON 对象，不要附加说明或代码围栏。"
+        else:
+            correction.update(previous_output=result, validation_errors=layout_error_message(error),
+                              fix_request=("请修正这些具体错误，按布局目标重新给出完整 layouts JSON。不要为区分目标而改动固定墙体。"
+                                           if by_goal else "请修正这些具体错误，重新给出完整 layouts JSON。保持原始户型，不要只换配色，各方案应有不同的分隔边界。"))
         result = await complete(system, content + [{"type": "text", "text": json.dumps(correction, ensure_ascii=False)}], role="vision", max_output_tokens=16384)
         try:
             layouts = validate_layouts(result, choices, fixed_bounds, required_functions, by_goal=by_goal)
