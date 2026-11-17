@@ -23,9 +23,9 @@ export default function OnlineAccess({ onEnable }) {
     }
   }
 
-  return <details>
+  return <details className="online-access">
     <summary>有邀请码？启用在线 AI</summary>
-    <form className="stack" onSubmit={enable}>
+    <form className="stack" onSubmit={enable} aria-busy={checking}>
       <label>在线 AI 邀请码
         <input value={code} type="password" required autoComplete="off"
           onChange={event => setCode(event.target.value)} />
