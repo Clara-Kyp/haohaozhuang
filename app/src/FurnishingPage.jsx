@@ -1,10 +1,9 @@
-import { isShowcase } from './deployment';
 import React,{useEffect,useRef,useState} from 'react';
 import {assets,describePosition} from './furnishing';
 import {readImage} from './planTools';
 import {roomTypes} from './roomScenes';
 import {canonicalStyle,getStyleProfile,styleNames} from './styleProfiles';
-export default function FurnishingPage({room,scene,draft,onChange,busy,onGenerate,onApply,onBack,onStudio,hasScene,onSave}){
+export default function FurnishingPage({showExamples,room,scene,draft,onChange,busy,onGenerate,onApply,onBack,onStudio,hasScene,onSave}){
   const [selected,setSelected]=useState(null);
   const [finishes, setFinishes] = useState(null);
   const update=patch=>onChange({...draft,...patch,proposal:null,error:''});
@@ -39,14 +38,14 @@ export default function FurnishingPage({room,scene,draft,onChange,busy,onGenerat
         {!profile&&<label>自定义风格名称<input value={draft.style} maxLength={40} disabled={busy}
           onChange={e=>update({style:e.target.value})}/></label>}
         {profile&&<small>{profile.mood.label}</small>}
-        {isShowcase ? <p className="card-sub">在线版使用内置陈设示例。AI 提案和参考图可在本地版使用。</p> : <>
+        {showExamples ? <p className="card-sub">当前使用内置陈设示例。启用在线 AI 后可按需求生成提案。</p> : <>
         <label>居住需求<textarea value={draft.instruction} maxLength={3000} disabled={busy} onChange={e=>update({instruction:e.target.value})}/></label>
         <label>风格参考图（最多3张）<input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={busy} onChange={async e=>{try{const files=[...e.target.files];const refs=await Promise.all(files.slice(0,3).map(f=>readImage(f,1280)));update({references:refs.map((r,i)=>({...r,name:files[i].name}))});}catch(error){onChange({...draft,error:error.message});}e.target.value='';}}/></label>
         <div className="reference-thumbs">{draft.references.map((r,n)=><figure key={n}><img src={r.image} alt={'风格参考 '+(n+1)}/><button disabled={busy} onClick={()=>update({references:draft.references.filter((_,i)=>i!==n)})}>移除</button></figure>)}</div>
         </>}
         {plan&&<button type="button" onClick={showProposal}>查看已生成的提案</button>}
-        <button className={plan ? undefined : 'btn-primary'} disabled={busy||!draft.style.trim()||draft.instruction.trim().length<2} onClick={onGenerate}>{busy?'正在规划家具与搭配…':isShowcase?'查看内置陈设示例':plan?'重新生成陈设提案':'生成完整陈设提案'}</button>
-        {!isShowcase && <p className="card-sub">根据房间大小和参考图选择家具、收纳、灯具与配饰。提案不会覆盖当前空间。</p>}
+        <button className={plan ? undefined : 'btn-primary'} disabled={busy||!draft.style.trim()||draft.instruction.trim().length<2} onClick={onGenerate}>{busy?'正在规划家具与搭配…':showExamples?'查看内置陈设示例':plan?'重新生成陈设提案':'生成完整陈设提案'}</button>
+        {!showExamples && <p className="card-sub">根据房间大小和参考图选择家具、收纳、灯具与配饰。提案不会覆盖当前空间。</p>}
         {draft.error&&<div className="notice warn" role="alert">{draft.error}</div>}
       </div></section>
       <section className="furnishing-proposal">

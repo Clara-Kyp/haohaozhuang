@@ -34,6 +34,8 @@ jobs:
         working-directory: app
       - run: npm run build -- --mode showcase
         working-directory: app
+        env:
+          VITE_AI_API_ORIGIN: ${{ vars.AI_API_ORIGIN }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app/dist

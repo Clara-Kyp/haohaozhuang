@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: haohaozhuang-ai
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r backend/requirements-cloud.txt
+    startCommand: uvicorn backend.cloud:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.12
+      - key: HAOHAO_AI_ONLY
+        value: "1"
+      - key: HAOHAO_WEB_ORIGIN
+        value: https://clara-kyp.github.io
+      - key: HAOHAO_ACCESS_CODE
+        generateValue: true
+      - key: LLM_PROVIDER
+        value: minimax
+      - key: MINIMAX_BASE_URL
+        value: https://api.minimaxi.com/v1
+      - key: MINIMAX_API_KEY
+        sync: false

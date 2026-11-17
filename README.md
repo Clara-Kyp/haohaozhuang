@@ -7,6 +7,16 @@ GitHub Pages 体验版可以选择示例户型、调整陈设和材质，并把�
 
 当前主链路：**户型与风格参考 → 完整陈设提案 → 家具、尺寸、位置与理由 → 用户确认 → 加载模型 → 3D逐件编辑**。已移除写实图片生成、对比页、任务轮询及ComfyUI/Celery/Redis运行依赖。历史模型权重和输出保留，不自动删除。
 
+## 云端 AI 体验
+
+[部署到 Render](https://render.com/deploy?repo=https://github.com/Clara-Kyp/haohaozhuang)
+
+1. 使用 Render 导入仓库的 `render.yaml`，在 Render 的环境变量中填写 `MINIMAX_API_KEY`。服务会生成 `HAOHAO_ACCESS_CODE`，用于给试用者开放在线 AI。
+2. 服务上线后，将其 HTTPS 地址设为 GitHub 仓库 Actions 变量 `AI_API_ORIGIN`，然后重新运行 **Deploy GitHub Pages**。
+3. 在网站首页点击「有邀请码？启用在线 AI」，输入邀请码。启用后即可上传户型图、生成布局和陈设。商品导入与 2K 烘焙在本地版使用。
+
+未设置云端地址时，GitHub Pages 继续提供示例体验。
+
 ## 启动
 
 在本项目目录执行：

@@ -1,4 +1,5 @@
-import { isShowcase, publicAsset } from './deployment';
+import { cloudRequest, isShowcase, publicAsset } from './deployment';
+import OnlineAccess from './OnlineAccess';
 import { showcaseFurnishing } from './showcaseFurnishing';
 /**
  * 好好装 · 装修工作台主入口
@@ -42,8 +43,7 @@ import './build.css';
 import './brand.css';
 
 /** 统一请求封装：后端不可用时抛错，由调用方决定如何降级 */
-async function api(path, body) {
-  if (isShowcase) throw new Error('此功能需要本地版服务。');
+async function localApi(path, body) {
   const response = await fetch('/api/' + path, body ? {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   } : undefined);
@@ -82,7 +82,7 @@ const loadSaved = () => {
 
 /* ------------------------------------------------------------ 欢迎首屏 */
 
-function Landing({ onPlan, onUpload, onRestore, hasSaved, onStartBlank }) {
+function Landing({ onPlan, onUpload, onRestore, hasSaved, onStartBlank, cloudCode, onEnableCloud }) {
   const fileRef=useRef(null),[heroView,setHeroView]=useState('inside');
   const [heroScene,setHeroScene]=useState(()=>{
     const poses=[['sofa',-1.75,0,90],['armchair',1.45,-.8,-35],['coffee',-.15,0,0],['rug',-.15,0,0],['floor-lamp',-1.95,-1.55,0],['plant',1.9,-1.55,0],['cabinet',.7,1.68,0]];
@@ -93,11 +93,13 @@ function Landing({ onPlan, onUpload, onRestore, hasSaved, onStartBlank }) {
   return <><main id="main-content" className="landing hh-landing">
     <section className="hero hero--product hh-hero" data-enter aria-labelledby="hero-title"><div className="wrap">
       <div className="hero-text hero__in hh-hero-in"><div className="hh-hero-head hero__head"><div><p className="hh-eyebrow">好好装 · 家居设计工作台</p><h1 id="hero-title">给自己家的<br/>3D 装修工作台。</h1></div>
-        <div className="hh-hero-intro"><p>{isShowcase ? '选一个示例户型，在浏览器里试摆家具并调整材质。' : '上传户型，规划陈设。沙发、地毯、墙面和吊顶，都在同一个空间里调整。'}</p><div className="hero-actions">{isShowcase ? <>
-          <button className="btn btn--primary btn-primary" onClick={()=>onPlan(samplePlans[0])}>试用示例户型</button>
+        <div className="hh-hero-intro"><p>{isShowcase && !cloudCode ? '选一个示例户型，在浏览器里试摆家具并调整材质。' : '上传户型，规划陈设。沙发、地毯、墙面和吊顶，都在同一个空间里调整。'}</p><div className="hero-actions">{isShowcase ? <>
+          {cloudCode && <button className="btn btn--primary btn-primary" onClick={()=>fileRef.current?.click()}>上传户型图</button>}
+          <button className={cloudCode ? 'btn btn--secondary' : 'btn btn--primary btn-primary'} onClick={()=>onPlan(samplePlans[0])}>试用示例户型</button>
           <a className="btn btn--secondary" href={publicAsset('/showcase/haohaozhuang.mp4')}>观看 1 分钟介绍</a>
           <a className="hh-resume" href={publicAsset('/showcase/haohaozhuang.pptx')} download>下载路演 PPT</a>
-        </> : <><button className="btn btn--primary btn-primary" onClick={()=>fileRef.current?.click()}>上传户型图 <span aria-hidden="true">↗</span></button><button className="btn btn--secondary" onClick={()=>onPlan(samplePlans[0])}>试用示例户型</button></>}</div><input ref={fileRef} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>onUpload(e.target.files[0])}/>{hasSaved&&<button className="hh-resume" onClick={onRestore}>继续上次保存的方案 →</button>}</div>
+        </> : <><button className="btn btn--primary btn-primary" onClick={()=>fileRef.current?.click()}>上传户型图 <span aria-hidden="true">↗</span></button><button className="btn btn--secondary" onClick={()=>onPlan(samplePlans[0])}>试用示例户型</button></>}</div><input ref={fileRef} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>onUpload(e.target.files[0])}/>{isShowcase && !cloudCode && <OnlineAccess onEnable={onEnableCloud}/>}
+          {isShowcase && cloudCode && <small>上传的户型图和参考图将发往云端用于生成方案。</small>}{hasSaved&&<button className="hh-resume" onClick={onRestore}>继续上次保存的方案 →</button>}</div>
       </div>
       <div className="hero__stage hh-room-preview" aria-label="可交互的客厅3D预览"><Room data={heroScene} view={heroView} onPose={()=>{}} target={heroTarget} onSelect={setHeroTarget} onItemsChange={items=>setHeroScene(s=>({...s,items}))} onCommit={patch=>setHeroScene(s=>({...s,...patch}))} grid={false}/><div className="hh-preview-tools" aria-label="首页预览视角"><button aria-pressed={heroView==='inside'} onClick={()=>setHeroView('inside')}>室内视角</button><button aria-pressed={heroView==='top'} onClick={()=>setHeroView('top')}>俯视视角</button></div></div></div>
     </div></section>
@@ -108,13 +110,21 @@ function Landing({ onPlan, onUpload, onRestore, hasSaved, onStartBlank }) {
       </div>
     </div></section>
     <section className="hh-plans section" id="start-plans" style={{'--h':1}}><div className="wrap"><div className="hh-section-head"><h2>选一个户型，开始试装。</h2><button className="btn btn--secondary" onClick={onStartBlank}>从空白画布开始 ↗</button></div><div className="hh-plan-grid">{samplePlans.map(plan=><button className="hh-plan-card card" key={plan.id} onClick={()=>onPlan(plan)}><div className="hh-plan-drawing" dangerouslySetInnerHTML={{__html:plan.id==='plan-a'?planBackdrop:buildCourtyardBackdrop(plan.rooms)}}/><div className="hh-plan-meta"><div><h3>{plan.name}</h3><p>{plan.subtitle}</p></div><span aria-hidden="true">↗</span></div></button>)}</div><p className="hh-plan-note">示例户型用于体验。自己的家，请按实际测量核对尺寸和门窗位置。</p></div></section>
-    </main><footer className="hh-footer closing"><div className="wrap"><div className="hh-close"><h2>开始规划你的家。</h2><p>从一张户型图开始，给每件家具找到合适的位置。</p><button className="btn btn--primary btn-primary" onClick={()=>isShowcase ? onPlan(samplePlans[0]) : fileRef.current?.click()}>{isShowcase ? '开始试装' : '上传户型图 ↗'}</button><div className="hh-footer-word" aria-hidden="true">好好装</div></div><div className="hh-footer-directory"><span>好好装</span><p>户型规划 / 家具陈设 / 实时 3D</p><span>© {new Date().getFullYear()}</span></div></div></footer></>;
+    </main><footer className="hh-footer closing"><div className="wrap"><div className="hh-close"><h2>开始规划你的家。</h2><p>从一张户型图开始，给每件家具找到合适的位置。</p><button className="btn btn--primary btn-primary" onClick={()=>isShowcase && !cloudCode ? onPlan(samplePlans[0]) : fileRef.current?.click()}>{isShowcase && !cloudCode ? '开始试装' : '上传户型图 ↗'}</button><div className="hh-footer-word" aria-hidden="true">好好装</div></div><div className="hh-footer-directory"><span>好好装</span><p>户型规划 / 家具陈设 / 实时 3D</p><span>© {new Date().getFullYear()}</span></div></div></footer></>;
 }
 
 /* ------------------------------------------------------------ 主应用 */
 
 function App() {
   const { scene, edit, load, undo, undoStack, resetProject } = useStudio();
+
+  const [cloudCode, setCloudCode] = useState('');
+  const hasAI = !isShowcase || !!cloudCode;
+  function api(path, body) {
+    if (!isShowcase) return localApi(path, body);
+    if (cloudCode && ['plan', 'layouts', 'furnishings'].includes(path)) return cloudRequest(path, cloudCode, body);
+    throw new Error('此功能需要本地版服务。');
+  }
 
   const [stage, setStage] = useState('welcome');      // welcome | plan | furnishing | studio
   const [rooms, setRooms] = useState([{ ...initialRoom }]);
@@ -562,7 +572,7 @@ function App() {
   async function generateFurnishing() {
     if(busy)return;
     const index=active,draft=furnishingDraft,context=furnishingContext();
-    if (isShowcase) {
+    if (!hasAI) {
       const plan = showcaseFurnishing(scene, draft.style);
       updateFurnishing({ ...draft, proposal: plan.items.length ? { ...plan, context } : null,
         error: plan.items.length ? '' : '当前房间没有合适的内置陈设。请切换到客厅示例。' });
@@ -666,7 +676,7 @@ function App() {
           </button>
         </nav>
         <div className="header-actions">
-          {stage==='welcome'&&<><button className="btn btn--primary btn-primary header-upload" onClick={()=>isShowcase ? loadPlan(samplePlans[0]) : headerUploadRef.current?.click()}>{isShowcase ? '试用示例户型' : '上传户型图'}</button><input hidden ref={headerUploadRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>upload(e.target.files[0])}/></>}
+          {stage==='welcome'&&<><button className="btn btn--primary btn-primary header-upload" onClick={()=>hasAI ? headerUploadRef.current?.click() : loadPlan(samplePlans[0])}>{hasAI ? '上传户型图' : '试用示例户型'}</button><input hidden ref={headerUploadRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>upload(e.target.files[0])}/></>}
           <span className="badge mint"><i className="dot" />{isShowcase ? '在线体验版' : '本地工作台'}</span>
           {saved && <button className="pill ghost" disabled={!!busy || saving} onClick={restore}>打开已保存方案</button>}
           {stage !== 'welcome' && <button className="pill ghost" onClick={() => setStage('welcome')}>首页</button>}
@@ -674,7 +684,7 @@ function App() {
       </div></header>
 
       {stage === 'welcome' && (
-        <Landing onPlan={loadPlan} onUpload={upload} onRestore={restore} hasSaved={!!saved}
+        <Landing cloudCode={cloudCode} onEnableCloud={setCloudCode} onPlan={loadPlan} onUpload={upload} onRestore={restore} hasSaved={!!saved}
           onStartBlank={() => {
             if (busy) { setMessage('请等待当前任务完成。'); return; }
             resetDraft(); setPlanning(newPlanning()); setRecognition({ state: 'idle', detail: '' });
@@ -686,7 +696,7 @@ function App() {
       )}
 
       {stage === 'furnishing' ? (
-        <FurnishingPage room={selectedRoom} scene={scene} draft={furnishingDraft} onChange={updateFurnishing} busy={!!busy}
+        <FurnishingPage showExamples={!hasAI} room={selectedRoom} scene={scene} draft={furnishingDraft} onChange={updateFurnishing} busy={!!busy}
           onGenerate={generateFurnishing} onApply={applyFurnishing} onBack={()=>{setStage('plan');setView('plan');}}
           onStudio={()=>setStage('studio')} hasScene={scene.furnishingApplied} onSave={save}/>
       ) : stage !== 'welcome' && (
@@ -882,7 +892,7 @@ function App() {
                 <div className="card fade-up">
                   <div className="card-title"><h2>户型导入</h2><span className="kicker">STEP 01</span></div>
                   <div className="stack">
-                    {isShowcase ? <><p>在线版使用内置户型。上传识别与 AI 规划可在本地版使用。</p>
+                    {!hasAI ? <><p>这里使用内置户型。开启在线 AI 后可上传自己的户型图。</p>
                       <button className="pill" onClick={() => setStage('welcome')}>换示例户型</button></> : <>
                     <label>上传户型图
                       <input type="file" accept="image/png,image/jpeg,image/webp"
@@ -896,7 +906,7 @@ function App() {
                 </div>
 
                 {recognition.detail && <p role="status" className={'plan-state ' + (['failed','empty'].includes(recognition.state) ? 'is-error' : '')}>{recognition.detail}</p>}
-                {!isShowcase && <PlanAssistant planning={planning} disabled={!!busy}
+                {hasAI && <PlanAssistant planning={planning} disabled={!!busy}
                   onChange={patch => setPlanning(old => ({ ...old, ...patch }))}
                   onGenerate={generateLayouts} onReferences={addReferences}
                   onPreview={id => setPlanning(old => ({ ...old, previewId: id }))} onApply={applyLayout} />}

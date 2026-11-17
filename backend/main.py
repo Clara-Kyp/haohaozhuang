@@ -416,17 +416,18 @@ async def furnishings(payload:FurnishingInput):
             output=await complete(system,content+[{"type":"text","text":json.dumps(correction,ensure_ascii=False)}],role=role,max_output_tokens=10000)
 
 
-# 商品默认SKU、图片与模型导入；运行时沿用当前视觉模型配置。
-from backend.products import make_product_router
-from backend.product_browser import product_browser
-async def product_complete(*args,**kwargs):
-    return await complete(*args,**kwargs)
-app.include_router(make_product_router(product_complete))
-from backend.inventory import router as inventory_router
-app.include_router(inventory_router)
-from backend.bakes import router as bakes_router
-app.include_router(bakes_router)
+if os.getenv('HAOHAO_AI_ONLY') != '1':
+    # 商品默认SKU、图片与模型导入；运行时沿用当前视觉模型配置。
+    from backend.products import make_product_router
+    from backend.product_browser import product_browser
+    async def product_complete(*args,**kwargs):
+        return await complete(*args,**kwargs)
+    app.include_router(make_product_router(product_complete))
+    from backend.inventory import router as inventory_router
+    app.include_router(inventory_router)
+    from backend.bakes import router as bakes_router
+    app.include_router(bakes_router)
 
-@app.on_event("shutdown")
-async def close_product_browser():
-    await product_browser.close()
+    @app.on_event("shutdown")
+    async def close_product_browser():
+        await product_browser.close()
