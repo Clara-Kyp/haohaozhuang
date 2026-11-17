@@ -31,10 +31,11 @@ import {assets,freshFurnishing,requireFurnishing,furnishingWarning} from './furn
 import { readProject, writeProject } from './persistence';
 import PlanAssistant from './PlanAssistant';
 import PlanCanvas from './PlanCanvas';
-import { RecognitionDimensions, RoomDimensionsForm } from './PlanMeasurements';
+import { PlanScaleInput, RecognitionDimensions, RoomDimensionsForm } from './PlanMeasurements';
 import { canonicalStyle, getStyleProfile, styleNames } from './styleProfiles';
 import { newPlanning, restorePlanning, layoutGoals, validRooms, requireLayouts, readImage, rasterizePlan,
-  recognitionRoomSizes, applyRecognitionSizes, planRoomDimensions, resizeRoomToDimensions } from './planTools';
+  recognitionRoomSizes, applyRecognitionSizes, planRoomDimensions, resizeRoomToDimensions, DEFAULT_PLAN_WIDTH,
+  PLAN_VIEW_WIDTH, planDimensionsAtScale, restorePlanScale, scaleForPlanWidth, scalePlanRooms } from './planTools';
 import {
   useStudio, materials, preset, initialScene, initialRoom, faceNames,
   ceilingTypes, rugPositions, proposalPatch, placement, serializeProject, withoutRoom,
@@ -200,8 +201,7 @@ function App() {
   const [planImg, setPlanImg] = useState([2048, 1536]); // 原图像素尺寸，供 bbox 归一化
   const [backdrop, setBackdrop] = useState(planBackdrop); // 内置底图 SVG 字符串
   const [ratio, setRatio] = useState(1);               // 图片宽高比，决定 SVG viewBox 高度
-  const [planW, setPlanW] = useState(5.76);            // 整张图对应宽度（米）
-  const [planH, setPlanH] = useState(12.4);            // 整张图对应高度（米）
+  const [planScale, setPlanScale] = useState(() => scaleForPlanWidth(DEFAULT_PLAN_WIDTH, PLAN_VIEW_WIDTH));
   const [verified, setVerified] = useState(false);
   const [zone, setZone] = useState(null);
   const [view, setView] = useState('inside');          // plan | top | inside
@@ -235,7 +235,7 @@ function App() {
 
   const headerUploadRef=useRef(null);
   const inspectorRef = useRef(null);
-  const planWidthRef = useRef(null);
+  const planScaleRef = useRef(null);
   const shelfToggleRef = useRef(null);
   const [cameraReset, setCameraReset] = useState(0);
   const request = useRef(0);
@@ -245,7 +245,9 @@ function App() {
   const selectedRoom = rooms[active] || rooms[0];
   const layoutPreview = planning.layouts.find(p => p.id === planning.previewId);
   const visibleRooms = layoutPreview?.rooms || rooms;
-  const planSize = [planW, planH];
+  const planPixels = photo ? planImg[0] : PLAN_VIEW_WIDTH;
+  const planSize = planDimensionsAtScale(planScale, planPixels, ratio);
+  const [planW, planH] = planSize;
   const canEditPlan = stage === 'plan' && !busy && !layoutPreview;
   const warning = placement(scene);
   const visibleWarning = !busy && stage === 'studio' && warning;
@@ -284,6 +286,28 @@ function App() {
   /** 房间的 3D 尺寸：内置户型用示意尺寸，上传户型按校准后的图宽高换算 */
   const roomSize = room => planRoomDimensions(room, planSize);
 
+  function applyPlanScale(value) {
+    if (value === planScale || busy) return;
+    const dimensions = planDimensionsAtScale(value, planPixels, ratio);
+    if (!Number.isFinite(value) || value <= 0 || dimensions.some(dimension => dimension > 60)) {
+      throw new Error('请输入大于 0 的比例尺，整张图的宽和高均须在 60 米以内。');
+    }
+    const factor = value / planScale;
+    const nextRooms = scalePlanRooms(rooms, planSize, factor);
+    const nextSource = scalePlanRooms(source, planSize, factor);
+    if ([...nextRooms, ...nextSource].some(room => room.size.some(dimension => dimension < 1 || dimension > 60))) {
+      throw new Error('按该比例换算后，房间宽度或进深超出 1–60 米。请核对比例尺。');
+    }
+    setPlanScale(value);
+    setRooms(nextRooms);
+    setSource(nextSource);
+    setVerified(false);
+    setRoomEditUndo(null);
+    setFurnishingDrafts(drafts => Object.fromEntries(Object.entries(drafts).map(([index, draft]) =>
+      [index, draft.proposal ? { ...draft, proposal: null } : draft])));
+    setMessage('已按同一比例更新整张图和所有房间的尺寸。');
+  }
+
   function showHome() {
     setStage('welcome');
     if (isShowcase) setMessage('');
@@ -301,7 +325,9 @@ function App() {
     setPhoto('');
     setBackdrop(plan.id === 'plan-a' ? planBackdrop : buildCourtyardBackdrop(plan.rooms));
     setRatio(plan.ratio || 1);
-    setPlanW(plan.planWidthM); setPlanH(plan.planHeightM);
+    const reference = list[living];
+    const width = reference?.size ? reference.size[0] / reference.w : plan.planWidthM;
+    setPlanScale(scaleForPlanWidth(width, PLAN_VIEW_WIDTH));
     setVerified(false); currentRooms.current = {}; cameraPoses.current = {};
     setStage('plan'); setView('plan');
     setMessage(`已载入「${plan.name}」。点选房间核对边界，再进入 3D。`);
@@ -320,11 +346,9 @@ function App() {
       resetDraft(); setPlanning(newPlanning());
       setSizeConditions(conditions);
       setPhoto(value.image); setBackdrop(''); setPlanImg([value.width, value.height]);
-      setRatio(value.width / value.height);
-      const estimatedWidth = 6.32;
-      const estimatedHeight = Math.round(estimatedWidth * value.height / value.width * 100) / 100;
-      setPlanW(estimatedWidth);
-      setPlanH(Math.min(60, Math.max(1, estimatedHeight)));
+      const imageRatio = value.width / value.height;
+      setRatio(imageRatio);
+      setPlanScale(scaleForPlanWidth(Math.min(DEFAULT_PLAN_WIDTH, 60 * imageRatio), value.width));
       setRooms([]); setSource([]); setActive(0); setMode('keep'); setZone(null); setVerified(false);
       setStage('plan'); setView('plan');
       await recognize(value, seq, sizes);
@@ -720,7 +744,7 @@ function App() {
       if (key != null) roomScenes[key] = scene;
       const data = serializeProject({
         rooms, source, active, scene, roomScenes, cameraPoses: cameraPoses.current,
-        verified, zone, mode, planW, planH, ratio, photo, planImg, backdrop,
+        verified, zone, mode, planScale, planW, planH, ratio, photo, planImg, backdrop,
         picked, planning, recognition, sizeConditions, stage, furnishingDrafts,
       });
       await writeProject(data);
@@ -736,17 +760,18 @@ function App() {
     resetProject();
     setRoomEditUndo(null);
     setSizeConditions(saved.sizeConditions || []);
-    setRooms(saved.rooms || []); setSource(saved.source || []); setActive(saved.active || 0);
-    setVerified(!!saved.verified); setZone(saved.zone?.axis ? saved.zone : null);
-    setMode(saved.mode || 'keep'); setPlanW(saved.planW || 6.32); setPlanH(saved.planH || 6.32);
+    const calibration = restorePlanScale(saved);
+    setRooms(calibration.rooms); setSource(calibration.source); setActive(saved.active || 0);
+    setVerified(calibration.verified); setZone(saved.zone?.axis ? saved.zone : null);
+    setMode(saved.mode || 'keep'); setPlanScale(calibration.scale);
     setRatio(saved.ratio || 1); setPhoto(saved.photo || ''); setPlanImg(saved.planImg || [2048,1536]);
     setBackdrop(saved.backdrop || '');
     setFurnishingDrafts(saved.furnishingDrafts || {});
     currentRooms.current = saved.roomScenes || { [saved.active || 0]: saved.scene || initialScene };
     cameraPoses.current = saved.cameraPoses || {};
-    const restoredRoom = (saved.rooms || [])[saved.active || 0] || initialRoom;
+    const restoredRoom = calibration.rooms[saved.active || 0] || initialRoom;
     const restoredScene = currentRooms.current[saved.active || 0] || saved.scene;
-    const dimensions = planRoomDimensions(restoredRoom, [saved.planW || 6.32, saved.planH || 6.32]);
+    const dimensions = planRoomDimensions(restoredRoom, calibration.dimensions);
     load(createRoomScene(restoredRoom, dimensions, restoredScene), saved.active || 0);
     setLink(saved.scene?.link || ''); setPicked(saved.picked || {}); setProposal(null);
 
@@ -794,6 +819,7 @@ function App() {
             setSizeConditions([]);
             setRooms([{ ...initialRoom }]); setSource([{ ...initialRoom }]);
             setPhoto(''); setBackdrop(planBackdrop); setRatio(1);
+            setPlanScale(scaleForPlanWidth(DEFAULT_PLAN_WIDTH, PLAN_VIEW_WIDTH)); setVerified(false);
             setStage('plan'); setView('plan');
             setMessage('空白画布已就绪：上传户型图，或在底图上拖出一个房间。');
           }} />
@@ -823,17 +849,12 @@ function App() {
             </div>
 
             {stage === 'plan' && (
-              <fieldset className="plan-calibration" id="plan-calibration" aria-labelledby="plan-calibration-heading">
+              <fieldset className="plan-calibration" id="plan-calibration" aria-labelledby="plan-calibration-heading" disabled={!!busy}>
                 <div>
-                  <h2 id="plan-calibration-heading">尺寸校准</h2>
-                  <p className="card-sub">{verified ? '已按实测校准。' : '当前为估算尺寸，可先试装。'}填写整张户型图对应的实际宽高。</p>
+                  <h2 id="plan-calibration-heading">图纸比例尺</h2>
+                  <p className="card-sub">{verified ? '实测比例' : '估算比例'} · 整张图约 {planW.toFixed(2)} × {planH.toFixed(2)} 米</p>
                 </div>
-                <div className="calibration-fields">
-                  <NumberField label="图宽（米）" inputRef={planWidthRef} value={planW} min={1} max={60}
-                    onChange={v => { setPlanW(v); setVerified(false); }} />
-                  <NumberField label="图高（米）" value={planH} min={1} max={60}
-                    onChange={v => { setPlanH(v); setVerified(false); }} />
-                </div>
+                <PlanScaleInput scale={planScale} onApply={applyPlanScale} inputRef={planScaleRef} />
                 <label className="check">
                   <input type="checkbox" checked={verified} onChange={e => setVerified(e.target.checked)} />
                   已按实测校准
@@ -922,8 +943,8 @@ function App() {
                 <>
                   <div className="row">
                     <span className="status-chip">{layoutPreview ? '候选预览' : '当前布局'} · {visibleRooms.length} 个空间</span>
-                    <button className="pill" aria-controls="plan-calibration" onClick={() => revealControl(planWidthRef.current)}>
-                      {verified ? '查看已校准尺寸' : '核对尺寸'}
+                    <button className="pill" aria-controls="plan-calibration" onClick={() => revealControl(planScaleRef.current)}>
+                      {verified ? '查看比例尺' : '核对比例尺'}
                     </button>
                   </div>
                   <button className="btn-primary pill" disabled={!rooms.length || !!busy || !!layoutPreview} onClick={enter}>确认户型，规划陈设 →</button>

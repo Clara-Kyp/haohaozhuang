@@ -22,6 +22,9 @@ export function validRooms(input) {
 
 export const MAX_PLAN_ROOMS = 24;
 export const MIN_ROOM_SPAN = .026;
+export const PLAN_VIEW_WIDTH = 1000;
+export const DEFAULT_PLAN_WIDTH = 6.32;
+export const PLAN_SCALE_PIXELS = 100;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const validDimension = value => Number.isFinite(value) && value >= 1 && value <= 60;
 const roomNameKey = name => name.trim().replace(/\s+/g, '').toLowerCase();
@@ -60,6 +63,35 @@ export function applyRecognitionSizes(rooms, sizes) {
 
 export function planRoomDimensions(room, [width, depth]) {
   return room?.size || [Math.max(1.5, width * (room?.w || .5)), Math.max(1.5, depth * (room?.h || .5))];
+}
+
+export function scaleForPlanWidth(width, pixels) {
+  return width * PLAN_SCALE_PIXELS / pixels;
+}
+
+export function planDimensionsAtScale(scale, pixels, ratio) {
+  const width = scale * pixels / PLAN_SCALE_PIXELS;
+  return [width, width / ratio];
+}
+
+export function scalePlanRooms(rooms, planSize, factor) {
+  return rooms.map(room => ({ ...room, size: planRoomDimensions(room, planSize).map(value => value * factor) }));
+}
+
+export function restorePlanScale(saved) {
+  const width = saved.planW || DEFAULT_PLAN_WIDTH;
+  const ratio = saved.ratio || 1;
+  const pixels = saved.photo ? (saved.planImg?.[0] || 2048) : PLAN_VIEW_WIDTH;
+  const legacy = !Number.isFinite(saved.planScale) || saved.planScale <= 0;
+  const scale = legacy ? scaleForPlanWidth(width, pixels) : saved.planScale;
+  const oldSize = [width, saved.planH || DEFAULT_PLAN_WIDTH];
+  const dimensions = planDimensionsAtScale(scale, pixels, ratio);
+  const restoreRooms = rooms => {
+    if (!legacy) return rooms || [];
+    return (rooms || []).map(room => room.size ? room : { ...room, size: planRoomDimensions(room, oldSize) });
+  };
+  return { scale, dimensions, rooms: restoreRooms(saved.rooms), source: restoreRooms(saved.source),
+    verified: !!saved.verified && (!legacy || Math.abs(oldSize[1] - dimensions[1]) < .01) };
 }
 
 export function resizeRoomToDimensions(room, size, planSize) {

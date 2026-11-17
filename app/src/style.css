@@ -482,6 +482,9 @@ h2 { font-size: 16px; line-height: 1.35; }
 }
 .plan-calibration .card-sub { margin: 4px 0 0; }
 .plan-calibration .check { min-height: 44px; }
+.plan-scale-input { min-inline-size: 0; }
+.plan-scale-input input { width: 100%; min-inline-size: 0; }
+.plan-scale-input .plan-error { margin: 6px 0 0; }
 .calibration-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .calibration-fields input { min-inline-size: 0; }
 .plan rect.editable-room { cursor: move; }
@@ -542,7 +545,7 @@ h2 { font-size: 16px; line-height: 1.35; }
 }
 @media (max-width: 600px) {
   :root { --editor-anchor-offset: 150px; }
-  .calibration-fields input { font-size: 16px; }
+  .calibration-fields input, .plan-scale-input input { font-size: 16px; }
   .studio-shortcuts { gap: 6px; }
   .studio-shortcuts button { padding-inline: 10px; }
 }

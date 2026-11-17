@@ -1,5 +1,37 @@
 import React, { useState } from 'react';
-import { MAX_PLAN_ROOMS } from './planTools';
+import { MAX_PLAN_ROOMS, PLAN_SCALE_PIXELS } from './planTools';
+
+export function PlanScaleInput({ scale, onApply, inputRef }) {
+  const [draft, setDraft] = useState(null);
+  const [error, setError] = useState('');
+  const displayed = Number(scale.toPrecision(6)).toString();
+  const value = draft?.scale === scale ? draft.value : displayed;
+
+  function apply() {
+    if (value === displayed) return;
+    try {
+      onApply(Number(value));
+      setError('');
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setDraft(null);
+    }
+  }
+
+  return <div className="plan-scale-input">
+    <label>图上 {PLAN_SCALE_PIXELS} 像素对应（米）
+      <input ref={inputRef} type="number" min="0" step="any" inputMode="decimal" value={value}
+        aria-invalid={!!error} aria-describedby={error ? 'plan-scale-error' : undefined}
+        onChange={event => { setDraft({ scale, value: event.target.value }); setError(''); }} onBlur={apply}
+        onKeyDown={event => {
+          if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur(); }
+          if (event.key === 'Escape') { setDraft(null); setError(''); }
+        }} />
+    </label>
+    {error && <p id="plan-scale-error" className="plan-error" role="alert">{error}</p>}
+  </div>;
+}
 
 export function RecognitionDimensions({ rows, onChange }) {
   function update(id, patch) {
