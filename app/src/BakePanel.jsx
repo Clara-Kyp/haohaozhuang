@@ -1,0 +1,26 @@
+import React,{useEffect,useRef,useState} from 'react';
+import {sceneSignature,sourceModelSignature} from './buildTools';
+import {preferredModel} from './productTools';
+async function request(path,body){const r=await fetch('/api/bakes'+path,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:undefined);const d=await r.json();if(!r.ok)throw new Error(typeof d.detail==='string'?d.detail:'烘焙服务暂不可用');return d;}
+const encode=binary=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result.split(',')[1]);reader.onerror=reject;reader.readAsDataURL(new Blob([binary]));});
+export default function BakePanel({scene,bridge,onPrepare,onExportDone,onApply,onMessage,productRequest,roomKey}){
+ const storageKey='roomvoice-bake-task-'+roomKey;
+ const [job,setJob]=useState(()=>{try{return JSON.parse(localStorage.getItem(storageKey)||'null')?.job||null;}catch{return null;}}),[error,setError]=useState(''),[starting,setStarting]=useState(false),[appliedJob,setAppliedJob]=useState(null),latest=useRef(scene),applied=useRef(null),isProduct=useRef(false),lastRequest=useRef(null),alive=useRef(true),callbacks=useRef({onApply,onMessage});callbacks.current={onApply,onMessage};
+ latest.current=scene;
+ useEffect(()=>{alive.current=true;try{isProduct.current=!!JSON.parse(localStorage.getItem(storageKey)||'null')?.isProduct;}catch{}return()=>{alive.current=false;};},[]);
+ useEffect(()=>{if(job)localStorage.setItem(storageKey,JSON.stringify({job,isProduct:isProduct.current}));},[job]);
+ useEffect(()=>{if(!job?.id)return;let stop=false,timer;async function poll(){try{const next=await request('/'+job.id);if(stop)return;setJob(next);setError('');if(['queued','processing'].includes(next.status))timer=setTimeout(poll,1600);}catch(e){if(!stop){setError(e.message);timer=setTimeout(poll,5000);}}}poll();return()=>{stop=true;clearTimeout(timer);};},[job?.id]);
+ useEffect(()=>{if(job?.status!=='ready'||!job.result||applied.current===job.id)return;applied.current=job.id;if(isProduct.current){callbacks.current.onMessage('此商品2K模型已完成并存入储物栏，放入时加载。');window.dispatchEvent(new Event('roomvoice-inventory-updated'));}else if(job.result.sourceSignature===sceneSignature(latest.current)){callbacks.current.onApply(job.result);setAppliedJob(job.id);}else callbacks.current.onMessage('2K资产已完成，但布局已变化，结果已缓存，没有覆盖当前方案。');},[job]);
+ useEffect(()=>{if(!productRequest||productRequest.roomKey!==roomKey||lastRequest.current===productRequest.nonce)return;lastRequest.current=productRequest.nonce;buildProduct(productRequest.entry);},[productRequest]);
+ async function buildProduct(entry){if(starting||['queued','processing'].includes(job?.status)){onMessage('当前烘焙还在执行，请先完成或停止当前任务。');return;}setError('');setStarting(true);isProduct.current=true;try{const record=entry.snapshot,dimensions=entry.confirmedDimensions||entry.dimensions,model=record.models.find(m=>m.id===(entry.chosenModel||preferredModel(record)));if(!model||model.canApply===false)throw new Error('请先完成商品造型核对，烘焙不能修复粗糙模型。');const productModel=model.type==='similar'?null:{...model,basedOnImage:record.images[0].url};const assetId=model.assetId||record.assetId;const signature=sourceModelSignature({assetId,...dimensions,color:record.color,productModel});const next=await request('/product',{importId:record.id,dimensions,modelId:model.id,modelSignature:signature});applied.current=null;setJob(next);}catch(e){setError(e.message);}finally{setStarting(false);}}
+ async function start(){setError('');setStarting(true);isProduct.current=false;try{await onPrepare();if(!bridge.current)throw new Error('请先进入室内3D场景。');const {binary,manifest}=await bridge.current.export();const source=await encode(binary);const next=await request('',{source,manifest});if(!alive.current)return;applied.current=null;setAppliedJob(null);setJob(next);}catch(e){setError(e.message);}finally{onExportDone();setStarting(false);}}
+ const busy=starting||['queued','processing'].includes(job?.status);
+ async function cancel(){try{setJob(await request('/'+job.id+'/cancel',{}));setError('');}catch(e){setError(e.message);}}
+ const loaded=scene.bake&&scene.bake.sourceSignature===sceneSignature(scene);
+ return <section className="bake-panel" aria-label="Cycles 2K烘焙"><div className="row"><button disabled={busy||!scene.furnishingApplied} onClick={start}>{busy?'正在烘焙灯光与材质…':'制作2K光照贴图（可选）'}</button>{loaded&&<span>当前布局已应用2K贴图</span>}{job&&['queued','processing'].includes(job.status)&&<button onClick={cancel}>停止本次烘焙</button>}</div>
+  {job&&<p role="status">{job.stage}{job.totalItems>0&&<> · 物品 {job.completedItems||0}/{job.totalItems}</>}{job.elapsedSeconds!=null&&<> · 已用 {Math.floor(job.elapsedSeconds/60)}分{job.elapsedSeconds%60}秒</>}</p>}
+  {busy&&job?.totalItems>0&&<progress aria-label="物品烘焙进度" value={job.completedItems||0} max={job.totalItems}/>}
+  {(error||job?.error)&&<p role="alert" className="notice warn">{error||job.error}</p>}
+  {job?.status==='ready'&&job.result&&<><p>{isProduct.current?'商品烘焙已存入储物栏。':loaded||appliedJob===job.id?'已应用到当前方案。':'制作已完成；当前布局与源方案不同，未覆盖场景。'}</p><div className="row"><a href={job.result.blendUrl} download>下载Blender工程</a><a href={job.result.logUrl} target="_blank" rel="noreferrer">查看烘焙日志</a></div></>}
+  <small>只改善已有模型的材质、光照与阴影，不能补出软包曲线、褶皱或更正尺寸。请先核对商品模型，再按需烘焙。每件物品与房间使用2048²图集。</small></section>;
+}

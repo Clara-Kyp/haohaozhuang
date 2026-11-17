@@ -1,0 +1,44 @@
+[
+  {
+    "file": "oak_veneer_01_diff_1k.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_01/oak_veneer_01_diff_1k.jpg",
+    "asset": "https://polyhaven.com/a/oak_veneer_01",
+    "license": "CC0",
+    "bytes": 641756
+  },
+  {
+    "file": "oak_veneer_01_nor_gl_1k.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_01/oak_veneer_01_nor_gl_1k.jpg",
+    "asset": "https://polyhaven.com/a/oak_veneer_01",
+    "license": "CC0",
+    "bytes": 484844
+  },
+  {
+    "file": "oak_veneer_01_rough_1k.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_01/oak_veneer_01_rough_1k.jpg",
+    "asset": "https://polyhaven.com/a/oak_veneer_01",
+    "license": "CC0",
+    "bytes": 865194
+  },
+  {
+    "file": "plastered_wall_03_nor_gl_1k.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plastered_wall_03/plastered_wall_03_nor_gl_1k.jpg",
+    "asset": "https://polyhaven.com/a/plastered_wall_03",
+    "license": "CC0",
+    "bytes": 530434
+  },
+  {
+    "file": "fabric_pattern_07_nor_gl_1k.jpg",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fabric_pattern_07/fabric_pattern_07_nor_gl_1k.jpg",
+    "asset": "https://polyhaven.com/a/fabric_pattern_07",
+    "license": "CC0",
+    "bytes": 828071
+  },
+  {
+    "file": "rooitou_park_1k.hdr",
+    "source": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/rooitou_park_1k.hdr",
+    "asset": "https://polyhaven.com/a/rooitou_park",
+    "license": "CC0",
+    "bytes": 1588504
+  }
+]

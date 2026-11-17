@@ -1,0 +1,492 @@
+[
+  {
+    "id": "sofa",
+    "name": "弧线布艺三人沙发",
+    "category": "座椅",
+    "placement": "floor",
+    "dimensions": {
+      "width": 2.25,
+      "depth": 0.95,
+      "height": 0.86
+    },
+    "rooms": [
+      "living"
+    ],
+    "source": "项目原创（Three.js几何与本地织物PBR）",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "url": "/models/qiyu-sofa/sofa.gltf"
+  },
+  {
+    "id": "armchair",
+    "name": "木框休闲椅",
+    "category": "座椅",
+    "placement": "floor",
+    "dimensions": {
+      "width": 0.78,
+      "depth": 0.85,
+      "height": 0.82
+    },
+    "rooms": [
+      "living",
+      "bedroom",
+      "study"
+    ],
+    "source": "https://polyhaven.com/a/modern_arm_chair_01",
+    "license": "CC0",
+    "color": "#b7a189",
+    "url": "/models/modern_arm_chair_01/modern_arm_chair_01.gltf"
+  },
+  {
+    "id": "coffee",
+    "name": "石面木框茶几",
+    "category": "桌几",
+    "placement": "floor",
+    "dimensions": {
+      "width": 1.1,
+      "depth": 0.65,
+      "height": 0.4
+    },
+    "rooms": [
+      "living"
+    ],
+    "source": "https://polyhaven.com/a/modern_coffee_table_01",
+    "license": "CC0",
+    "color": "#b7a189",
+    "url": "/models/modern_coffee_table_01/modern_coffee_table_01.gltf"
+  },
+  {
+    "id": "cabinet",
+    "name": "木质收纳柜",
+    "category": "柜架",
+    "placement": "floor",
+    "dimensions": {
+      "width": 1.5,
+      "depth": 0.4,
+      "height": 0.78
+    },
+    "rooms": [
+      "living",
+      "dining",
+      "study",
+      "circulation",
+      "bedroom"
+    ],
+    "source": "https://polyhaven.com/a/modern_wooden_cabinet",
+    "license": "CC0",
+    "color": "#b7a189",
+    "url": "/models/modern_wooden_cabinet/modern_wooden_cabinet.gltf"
+  },
+  {
+    "id": "side",
+    "name": "圆木边几",
+    "category": "桌几",
+    "placement": "floor",
+    "dimensions": {
+      "width": 0.45,
+      "depth": 0.45,
+      "height": 0.5
+    },
+    "rooms": [
+      "living",
+      "bedroom",
+      "study"
+    ],
+    "source": "https://polyhaven.com/a/side_table_01",
+    "license": "CC0",
+    "color": "#b7a189",
+    "url": "/models/side_table_01/side_table_01.gltf"
+  },
+  {
+    "id": "plant",
+    "name": "盆栽绿植",
+    "category": "绿植",
+    "placement": "floor",
+    "dimensions": {
+      "width": 0.48,
+      "depth": 0.48,
+      "height": 0.85
+    },
+    "rooms": [
+      "living",
+      "bedroom",
+      "dining",
+      "study",
+      "court",
+      "circulation"
+    ],
+    "source": "https://polyhaven.com/a/potted_plant_02",
+    "license": "CC0",
+    "color": "#b7a189",
+    "url": "/models/potted_plant_02/potted_plant_02.gltf"
+  },
+  {
+    "id": "vase",
+    "name": "陶瓷花器",
+    "category": "摆件",
+    "placement": "surface",
+    "dimensions": {
+      "width": 0.14,
+      "depth": 0.14,
+      "height": 0.25
+    },
+    "rooms": [
+      "living",
+      "bedroom",
+      "dining",
+      "study",
+      "circulation"
+    ],
+    "source": "https://polyhaven.com/a/ceramic_vase_03",
+    "license": "CC0",
+    "color": "#b7a189",
+    "url": "/models/ceramic_vase_03/ceramic_vase_03.gltf"
+  },
+  {
+    "id": "books",
+    "name": "装饰书组",
+    "category": "摆件",
+    "placement": "surface",
+    "dimensions": {
+      "width": 0.28,
+      "depth": 0.19,
+      "height": 0.12
+    },
+    "rooms": [
+      "living",
+      "bedroom",
+      "study",
+      "dining"
+    ],
+    "source": "https://polyhaven.com/a/book_encyclopedia_set_01",
+    "license": "CC0",
+    "color": "#b7a189",
+    "url": "/models/book_encyclopedia_set_01/book_encyclopedia_set_01.gltf"
+  },
+  {
+    "id": "desk-lamp",
+    "name": "可调节台灯",
+    "category": "灯具",
+    "placement": "surface",
+    "dimensions": {
+      "width": 0.25,
+      "depth": 0.3,
+      "height": 0.5
+    },
+    "rooms": [
+      "living",
+      "bedroom",
+      "study"
+    ],
+    "source": "https://polyhaven.com/a/desk_lamp_arm_01",
+    "license": "CC0",
+    "color": "#b7a189",
+    "url": "/models/desk_lamp_arm_01/desk_lamp_arm_01.gltf"
+  },
+  {
+    "id": "dining-chair",
+    "name": "木质餐椅",
+    "category": "座椅",
+    "placement": "floor",
+    "dimensions": {
+      "width": 0.48,
+      "depth": 0.52,
+      "height": 0.82
+    },
+    "rooms": [
+      "dining",
+      "study",
+      "kitchen"
+    ],
+    "source": "https://polyhaven.com/a/dining_chair_02",
+    "license": "CC0",
+    "color": "#b7a189",
+    "url": "/models/dining_chair_02/dining_chair_02.gltf"
+  },
+  {
+    "id": "dining-table",
+    "name": "木质餐桌",
+    "category": "桌几",
+    "placement": "floor",
+    "dimensions": {
+      "width": 1.4,
+      "depth": 0.8,
+      "height": 0.76
+    },
+    "rooms": [
+      "dining",
+      "kitchen"
+    ],
+    "source": "https://polyhaven.com/a/dining_table",
+    "license": "CC0",
+    "color": "#b7a189",
+    "url": "/models/dining_table/dining_table.gltf"
+  },
+  {
+    "id": "rug",
+    "name": "织物地毯",
+    "category": "织物",
+    "placement": "rug",
+    "dimensions": {
+      "width": 1.6,
+      "depth": 2,
+      "height": 0.012
+    },
+    "rooms": [
+      "living",
+      "bedroom",
+      "study"
+    ],
+    "source": "内置参数模型",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "kind": "rug"
+  },
+  {
+    "id": "art",
+    "name": "装框装饰画",
+    "category": "墙饰",
+    "placement": "wall",
+    "dimensions": {
+      "width": 0.65,
+      "depth": 0.035,
+      "height": 0.85
+    },
+    "rooms": [
+      "living",
+      "bedroom",
+      "study",
+      "dining",
+      "circulation"
+    ],
+    "source": "内置参数模型",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "kind": "art"
+  },
+  {
+    "id": "floor-lamp",
+    "name": "暖光落地灯",
+    "category": "灯具",
+    "placement": "floor",
+    "dimensions": {
+      "width": 0.36,
+      "depth": 0.36,
+      "height": 1.55
+    },
+    "rooms": [
+      "living",
+      "bedroom",
+      "study"
+    ],
+    "source": "内置参数模型",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "kind": "floor-lamp"
+  },
+  {
+    "id": "bed",
+    "name": "软包床与床品",
+    "category": "床具",
+    "placement": "floor",
+    "dimensions": {
+      "width": 1.6,
+      "depth": 2,
+      "height": 0.85
+    },
+    "rooms": [
+      "bedroom"
+    ],
+    "source": "内置参数模型",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "kind": "bed"
+  },
+  {
+    "id": "wardrobe",
+    "name": "衣柜",
+    "category": "柜架",
+    "placement": "floor",
+    "dimensions": {
+      "width": 1.2,
+      "depth": 0.6,
+      "height": 2.2
+    },
+    "rooms": [
+      "bedroom"
+    ],
+    "source": "内置参数模型",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "kind": "wardrobe"
+  },
+  {
+    "id": "desk",
+    "name": "书桌",
+    "category": "桌几",
+    "placement": "floor",
+    "dimensions": {
+      "width": 1.2,
+      "depth": 0.6,
+      "height": 0.76
+    },
+    "rooms": [
+      "study",
+      "bedroom"
+    ],
+    "source": "内置参数模型",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "kind": "desk"
+  },
+  {
+    "id": "bookshelf",
+    "name": "开放书架",
+    "category": "柜架",
+    "placement": "floor",
+    "dimensions": {
+      "width": 0.9,
+      "depth": 0.35,
+      "height": 1.8
+    },
+    "rooms": [
+      "study",
+      "living"
+    ],
+    "source": "内置参数模型",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "kind": "bookshelf"
+  },
+  {
+    "id": "kitchen",
+    "name": "橱柜灶台与水槽",
+    "category": "厨房",
+    "placement": "floor",
+    "dimensions": {
+      "width": 1.5,
+      "depth": 0.6,
+      "height": 0.88
+    },
+    "rooms": [
+      "kitchen"
+    ],
+    "source": "内置参数模型",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "kind": "kitchen"
+  },
+  {
+    "id": "fridge",
+    "name": "双门冰箱",
+    "category": "厨房",
+    "placement": "floor",
+    "dimensions": {
+      "width": 0.6,
+      "depth": 0.64,
+      "height": 1.85
+    },
+    "rooms": [
+      "kitchen"
+    ],
+    "source": "内置参数模型",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "kind": "fridge"
+  },
+  {
+    "id": "vanity",
+    "name": "洗手台与镜子",
+    "category": "卫浴",
+    "placement": "floor",
+    "dimensions": {
+      "width": 0.8,
+      "depth": 0.48,
+      "height": 0.83
+    },
+    "rooms": [
+      "bath"
+    ],
+    "source": "内置参数模型",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "kind": "vanity"
+  },
+  {
+    "id": "toilet",
+    "name": "坐便器",
+    "category": "卫浴",
+    "placement": "floor",
+    "dimensions": {
+      "width": 0.4,
+      "depth": 0.66,
+      "height": 0.78
+    },
+    "rooms": [
+      "bath"
+    ],
+    "source": "内置参数模型",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "kind": "toilet"
+  },
+  {
+    "id": "shower",
+    "name": "玻璃淋浴区",
+    "category": "卫浴",
+    "placement": "floor",
+    "dimensions": {
+      "width": 0.85,
+      "depth": 0.85,
+      "height": 2
+    },
+    "rooms": [
+      "bath"
+    ],
+    "source": "内置参数模型",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "kind": "shower"
+  },
+  {
+    "id": "console",
+    "name": "玄关柜",
+    "category": "柜架",
+    "placement": "floor",
+    "dimensions": {
+      "width": 0.9,
+      "depth": 0.3,
+      "height": 0.95
+    },
+    "rooms": [
+      "circulation"
+    ],
+    "source": "内置参数模型",
+    "license": "项目原创",
+    "color": "#b7a189",
+    "kind": "console"
+  },
+  {
+    "id": "antique-sofa",
+    "name": "雕花皮革复古沙发",
+    "category": "座椅",
+    "placement": "floor",
+    "dimensions": {
+      "width": 2.25,
+      "depth": 0.95,
+      "height": 0.86
+    },
+    "rooms": [
+      "living"
+    ],
+    "source": "https://polyhaven.com/a/sofa_03",
+    "license": "CC0",
+    "color": "#b7a189",
+    "url": "/models/sofa_03/sofa_03.gltf",
+    "styles": [
+      "维多利亚",
+      "复古",
+      "古典"
+    ]
+  }
+]

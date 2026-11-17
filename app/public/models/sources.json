@@ -1,0 +1,79 @@
+[
+  {
+    "id": "sofa_03",
+    "url": "/models/sofa_03/sofa_03.gltf",
+    "source": "https://polyhaven.com/a/sofa_03",
+    "license": "CC0",
+    "bytes": 668033
+  },
+  {
+    "id": "modern_arm_chair_01",
+    "url": "/models/modern_arm_chair_01/modern_arm_chair_01.gltf",
+    "source": "https://polyhaven.com/a/modern_arm_chair_01",
+    "license": "CC0",
+    "bytes": 2698032
+  },
+  {
+    "id": "modern_coffee_table_01",
+    "url": "/models/modern_coffee_table_01/modern_coffee_table_01.gltf",
+    "source": "https://polyhaven.com/a/modern_coffee_table_01",
+    "license": "CC0",
+    "bytes": 1331297
+  },
+  {
+    "id": "modern_wooden_cabinet",
+    "url": "/models/modern_wooden_cabinet/modern_wooden_cabinet.gltf",
+    "source": "https://polyhaven.com/a/modern_wooden_cabinet",
+    "license": "CC0",
+    "bytes": 2855522
+  },
+  {
+    "id": "side_table_01",
+    "url": "/models/side_table_01/side_table_01.gltf",
+    "source": "https://polyhaven.com/a/side_table_01",
+    "license": "CC0",
+    "bytes": 505268
+  },
+  {
+    "id": "potted_plant_02",
+    "url": "/models/potted_plant_02/potted_plant_02.gltf",
+    "source": "https://polyhaven.com/a/potted_plant_02",
+    "license": "CC0",
+    "bytes": 2634698
+  },
+  {
+    "id": "ceramic_vase_03",
+    "url": "/models/ceramic_vase_03/ceramic_vase_03.gltf",
+    "source": "https://polyhaven.com/a/ceramic_vase_03",
+    "license": "CC0",
+    "bytes": 765159
+  },
+  {
+    "id": "book_encyclopedia_set_01",
+    "url": "/models/book_encyclopedia_set_01/book_encyclopedia_set_01.gltf",
+    "source": "https://polyhaven.com/a/book_encyclopedia_set_01",
+    "license": "CC0",
+    "bytes": 3261046
+  },
+  {
+    "id": "desk_lamp_arm_01",
+    "url": "/models/desk_lamp_arm_01/desk_lamp_arm_01.gltf",
+    "source": "https://polyhaven.com/a/desk_lamp_arm_01",
+    "license": "CC0",
+    "bytes": 2875984
+  },
+  {
+    "id": "dining_chair_02",
+    "url": "/models/dining_chair_02/dining_chair_02.gltf",
+    "source": "https://polyhaven.com/a/dining_chair_02",
+    "license": "CC0",
+    "bytes": 921075
+  },
+  {
+    "id": "dining_table",
+    "url": "/models/dining_table/dining_table.gltf",
+    "source": "https://polyhaven.com/a/dining_table",
+    "license": "CC0",
+    "bytes": 2283933
+  }
+]
