@@ -15,6 +15,8 @@ GitHub Pages 体验版可以选择示例户型、调整陈设和材质，并把�
 2. 服务上线后，将其 HTTPS 地址设为 GitHub 仓库 Actions 变量 `AI_API_ORIGIN`，然后重新运行 **Deploy GitHub Pages**。
 3. 在网站首页点击「有邀请码？启用在线 AI」，输入邀请码。启用后即可上传户型图、生成布局和陈设。商品导入与 2K 烘焙在本地版使用。
 
+可在 Render 的 `HAOHAO_INVITE_HASHES` 中添加额外邀请码的 SHA-256 十六进制摘要，以空格分隔。原邀请码可继续使用。
+
 未设置云端地址时，GitHub Pages 继续提供示例体验。
 
 ## 启动

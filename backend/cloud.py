@@ -1,5 +1,6 @@
 """Hosted entry point for the invite-only planning API."""
 from collections import deque
+from hashlib import sha256
 from hmac import compare_digest
 import os
 from time import monotonic
@@ -15,6 +16,10 @@ WEB_ORIGIN = os.environ["HAOHAO_WEB_ORIGIN"]
 ACCESS_CODE = os.environ.get("HAOHAO_ACCESS_CODE", "").encode()
 if len(ACCESS_CODE) < 20:
     raise RuntimeError("HAOHAO_ACCESS_CODE must contain at least 20 characters")
+ACCESS_CODE_HASHES = (
+    sha256(ACCESS_CODE).hexdigest().encode("ascii"),
+    *os.environ.get("HAOHAO_INVITE_HASHES", "").encode().split(),
+)
 
 AI_ROUTES = {"/api/plan", "/api/layouts", "/api/furnishings"}
 MAX_BODY_BYTES = 32_000_000
@@ -48,7 +53,8 @@ async def protect_cloud_api(request: Request, call_next):
         return error(404, "此接口未在线上开放。")
 
     supplied = request.headers.get("X-Access-Code", "").encode()
-    if not compare_digest(supplied, ACCESS_CODE):
+    supplied_hash = sha256(supplied).hexdigest().encode("ascii")
+    if not any(compare_digest(supplied_hash, expected) for expected in ACCESS_CODE_HASHES):
         return error(401, "邀请码无效。")
     if checking:
         return await call_next(request)
